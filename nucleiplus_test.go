@@ -1,19 +1,21 @@
-package main
+package nucleiplus
 
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
 
 	"github.com/projectdiscovery/nuclei/v2/pkg/output"
 	"github.com/projectdiscovery/nuclei/v2/pkg/testutils"
-
-	helper "nuclei-plus/pkg"
 )
 
-func main() {
+func TestNuclei(t *testing.T) {
+	// download config & templates
+	Setup()
+
 	targets := []string{
 		"https://docs.hackerone.com/",
-		"https://www.baidu.com/",
+		//"https://www.baidu.com/",
 	}
 
 	res := make([]*output.ResultEvent, 0)
@@ -26,8 +28,7 @@ func main() {
 	}
 
 	for _, target := range targets {
-		// 扫描
-		helper.Nuclei(target, outputWriter)
+		Nuclei(target, outputWriter)
 	}
 
 	s, _ := json.Marshal(res)

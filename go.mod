@@ -3,7 +3,13 @@ module nuclei-plus
 go 1.20
 
 require (
+	github.com/google/go-github v17.0.0+incompatible
+	github.com/json-iterator/go v1.1.12
 	github.com/logrusorgru/aurora v2.0.3+incompatible
+	github.com/pkg/errors v0.9.1
+	github.com/projectdiscovery/goflags v0.1.8
+	github.com/projectdiscovery/gologger v1.1.8
+	github.com/projectdiscovery/nuclei-updatecheck-api v0.0.0-20221125080802-2d2e68b40754
 	github.com/projectdiscovery/nuclei/v2 v2.9.1
 	github.com/projectdiscovery/ratelimit v0.0.6
 	github.com/sirupsen/logrus v1.9.0
@@ -68,7 +74,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/certificate-transparency-go v1.1.4 // indirect
-	github.com/google/go-github v17.0.0+incompatible // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -81,7 +86,6 @@ require (
 	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0 // indirect
 	github.com/itchyny/gojq v0.12.11 // indirect
 	github.com/itchyny/timefmt-go v0.1.5 // indirect
-	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/karlseguin/ccache v2.0.3+incompatible // indirect
 	github.com/kataras/jwt v0.1.8 // indirect
@@ -108,7 +112,6 @@ require (
 	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/projectdiscovery/asnmap v1.0.2 // indirect
 	github.com/projectdiscovery/blackrock v0.0.0-20230328171319-f24b18d05b64 // indirect
@@ -117,8 +120,6 @@ require (
 	github.com/projectdiscovery/fastdialer v0.0.24 // indirect
 	github.com/projectdiscovery/fasttemplate v0.0.2 // indirect
 	github.com/projectdiscovery/freeport v0.0.4 // indirect
-	github.com/projectdiscovery/goflags v0.1.8 // indirect
-	github.com/projectdiscovery/gologger v1.1.8 // indirect
 	github.com/projectdiscovery/hmap v0.0.11 // indirect
 	github.com/projectdiscovery/interactsh v1.1.2 // indirect
 	github.com/projectdiscovery/iputil v0.0.2 // indirect
@@ -158,7 +159,6 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/weppos/publicsuffix-go v0.30.0 // indirect
-	github.com/wsxiaoys/terminal v0.0.0-20160513160801-0940f3fc43a0 // indirect
 	github.com/xanzy/go-gitlab v0.80.2 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/yl2chen/cidranger v1.0.2 // indirect
