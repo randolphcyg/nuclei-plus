@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -243,7 +242,7 @@ func downloadReleaseAndUnzip(ctx context.Context, downloadURL string, templatesD
 		return nil, fmt.Errorf("failed to download a release file from %s: Not successful status %d", downloadURL, res.StatusCode)
 	}
 
-	buf, err := ioutil.ReadAll(res.Body)
+	buf, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create buffer for zip file: %s", err)
 	}
@@ -277,7 +276,7 @@ func downloadReleaseAndUnzip(ctx context.Context, downloadURL string, templatesD
 		buffer.WriteString("\n")
 	}
 
-	if err := ioutil.WriteFile(additionsFile, buffer.Bytes(), os.ModePerm); err != nil {
+	if err := os.WriteFile(additionsFile, buffer.Bytes(), os.ModePerm); err != nil {
 		return nil, errors.Wrap(err, "could not write new additions file")
 	}
 	return results, err
