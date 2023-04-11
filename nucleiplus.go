@@ -42,7 +42,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Nuclei(target string, templatePath string, outputWriter *testutils.MockOutputWriter) {
+func Nuclei(outputWriter *testutils.MockOutputWriter, target string, templatePath string, debug bool, excludeTags goflags.StringSlice) {
 	cache := hosterrorscache.New(30, hosterrorscache.DefaultMaxHostsCount, nil)
 	defer cache.Close()
 
@@ -50,7 +50,6 @@ func Nuclei(target string, templatePath string, outputWriter *testutils.MockOutp
 	reportingClient, _ := reporting.New(&reporting.Options{}, "")
 	defer reportingClient.Close()
 
-	//配置选项
 	defaultOpts := types.DefaultOptions()
 
 	protocolstate.Init(defaultOpts)
@@ -58,9 +57,10 @@ func Nuclei(target string, templatePath string, outputWriter *testutils.MockOutp
 
 	defaultOpts.Validate = true
 	defaultOpts.UpdateTemplates = true
-	defaultOpts.Debug = true
+	defaultOpts.Debug = debug
 	defaultOpts.Verbose = true
 	defaultOpts.EnableProgressBar = true
+	defaultOpts.ExcludeTags = excludeTags
 
 	if len(templatePath) == 0 {
 		home, _ := os.UserHomeDir()
@@ -70,9 +70,6 @@ func Nuclei(target string, templatePath string, outputWriter *testutils.MockOutp
 	defaultOpts.Templates = goflags.StringSlice{
 		templatePath,
 	}
-
-	// 排除的标记列表 这里不使用.nuclei-ignore文件来排除，直接在这里指定
-	defaultOpts.ExcludeTags = goflags.StringSlice{"dos", "misc"}
 
 	interactOpts := interactsh.NewDefaultOptions(outputWriter, reportingClient, mockProgress)
 	interactClient, err := interactsh.New(interactOpts)
@@ -127,8 +124,8 @@ func Nuclei(target string, templatePath string, outputWriter *testutils.MockOutp
 const (
 	userName             = "projectdiscovery"
 	repoName             = "nuclei-templates"
-	nucleiIgnoreFile     = ".nuclei-ignore"
 	nucleiConfigFilename = ".templates-config.json"
+	TemplatesDirectory   = "nuclei-templates"
 )
 
 // Config contains the internal nuclei engine configuration
@@ -427,7 +424,7 @@ func Setup() {
 	}
 
 	currentConfig := &Config{
-		TemplatesDirectory:           filepath.Join(home, "nuclei-templates"),
+		TemplatesDirectory:           filepath.Join(home, TemplatesDirectory),
 		NucleiVersion:                config.Version,
 		TemplateVersion:              "9.4.1",
 		NucleiIgnoreHash:             versions.IgnoreHash,
@@ -462,6 +459,5 @@ func Setup() {
 		}
 	}
 
-	fmt.Println("nuclei templates is ready: ", templatesDirectory)
-
+	log.Info("nuclei templates is ready: ", templatesDirectory)
 }
