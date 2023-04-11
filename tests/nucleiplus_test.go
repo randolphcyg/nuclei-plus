@@ -2,8 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"os"
-	"path"
 	"testing"
 
 	"github.com/projectdiscovery/goflags"
@@ -23,8 +21,7 @@ func TestNuclei(t *testing.T) {
 	}
 
 	// template
-	home, _ := os.UserHomeDir()
-	templatePath := path.Join(home, nucleiplus.TemplatesDirectory, "CVE-2021-3129.yaml")
+	templatePaths := []string{"/root/nuclei-templates/cves/2021/CVE-2021-3129.yaml"}
 	debug := false
 	excludeTags := goflags.StringSlice{"dos", "misc"}
 
@@ -39,7 +36,7 @@ func TestNuclei(t *testing.T) {
 	}
 
 	for _, target := range targets {
-		nucleiplus.Nuclei(outputWriter, target, templatePath, debug, excludeTags)
+		nucleiplus.Nuclei(outputWriter, target, templatePaths, debug, excludeTags)
 	}
 
 	// result
