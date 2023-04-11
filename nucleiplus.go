@@ -42,7 +42,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Nuclei(target string, outputWriter *testutils.MockOutputWriter) {
+func Nuclei(target string, templatePath string, outputWriter *testutils.MockOutputWriter) {
 	cache := hosterrorscache.New(30, hosterrorscache.DefaultMaxHostsCount, nil)
 	defer cache.Close()
 
@@ -62,14 +62,17 @@ func Nuclei(target string, outputWriter *testutils.MockOutputWriter) {
 	defaultOpts.Verbose = true
 	defaultOpts.EnableProgressBar = true
 
-	home, _ := os.UserHomeDir()
-	templatesRootPath := path.Join(home, "nuclei-templates")
+	if len(templatePath) == 0 {
+		home, _ := os.UserHomeDir()
+		templatePath = path.Join(home, "nuclei-templates")
+	}
+
+	defaultOpts.Templates = goflags.StringSlice{
+		templatePath,
+	}
 
 	// 排除的标记列表 这里不使用.nuclei-ignore文件来排除，直接在这里指定
 	defaultOpts.ExcludeTags = goflags.StringSlice{"dos", "misc"}
-	defaultOpts.Templates = goflags.StringSlice{
-		templatesRootPath,
-	}
 
 	interactOpts := interactsh.NewDefaultOptions(outputWriter, reportingClient, mockProgress)
 	interactClient, err := interactsh.New(interactOpts)
@@ -79,7 +82,7 @@ func Nuclei(target string, outputWriter *testutils.MockOutputWriter) {
 	}
 	defer interactClient.Close()
 
-	catalog := disk.NewCatalog(templatesRootPath)
+	catalog := disk.NewCatalog(templatePath)
 	executerOpts := protocols.ExecuterOptions{
 		Output:          outputWriter,
 		Options:         defaultOpts,
@@ -418,6 +421,10 @@ func Setup() {
 
 	// 下载 poc 文件
 	versions, err := client.GetLatestNucleiTemplatesVersion()
+	if err != nil {
+		log.Error(err)
+		return
+	}
 
 	currentConfig := &Config{
 		TemplatesDirectory:           filepath.Join(home, "nuclei-templates"),
