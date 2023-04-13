@@ -13,7 +13,10 @@ import (
 
 func TestNuclei(t *testing.T) {
 	// download config & templates
-	nucleiplus.Setup()
+	err := nucleiplus.Setup()
+	if err != nil {
+		panic(err)
+	}
 
 	// targets
 	targets := []string{
@@ -37,9 +40,9 @@ func TestNuclei(t *testing.T) {
 	}
 
 	for _, target := range targets {
-		err := nucleiplus.Nuclei(outputWriter, target, templatePaths, debug, excludeTags)
+		err = nucleiplus.Nuclei(outputWriter, target, templatePaths, debug, excludeTags)
 		if err != nil {
-			fmt.Println(err)
+			panic(err)
 		}
 	}
 

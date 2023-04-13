@@ -306,10 +306,10 @@ func createTemplateChecksumsMap(checksumsFilePath string) (map[string][2]string,
 	return templatePathChecksumsMap, nil
 }
 
-func Setup() {
+func Setup() (err error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Error(err)
+		return
 	}
 
 	configDir := filepath.Join(home, ".config", "nuclei")
@@ -321,7 +321,6 @@ func Setup() {
 	// download poc
 	versions, err := client.GetLatestNucleiTemplatesVersion()
 	if err != nil {
-		log.Error(err)
 		return
 	}
 
@@ -336,7 +335,7 @@ func Setup() {
 	// create .templates-config.json
 	if writeErr := WriteConfiguration(currentConfig); writeErr != nil {
 		err = errors.Wrap(writeErr, "could not read configuration file")
-		log.Error(err)
+		return
 	}
 
 	templatesDirectory := filepath.Join(home, "nuclei-templates")
@@ -355,11 +354,13 @@ func Setup() {
 		}
 		gologger.Verbose().Msgf("Downloading nuclei-templates (v%s) to %s\n", config.Version, templatesDirectory)
 
-		if _, err := downloadReleaseAndUnzip(ctx, asset.GetZipballURL(), templatesDirectory); err != nil {
+		if _, err = downloadReleaseAndUnzip(ctx, asset.GetZipballURL(), templatesDirectory); err != nil {
 			err = errors.Wrap(err, "occur error when download templates")
-			log.Error(err)
+			return
 		}
 	}
 
 	log.Info("nuclei templates is ready: ", templatesDirectory)
+
+	return
 }
