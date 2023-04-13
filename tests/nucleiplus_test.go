@@ -21,7 +21,8 @@ func TestNuclei(t *testing.T) {
 	}
 
 	// template
-	templatePaths := []string{"/root/nuclei-templates/cves/2021/CVE-2021-3129.yaml"}
+	//templatePaths := []string{"/root/nuclei-templates/cves/2021/CVE-2021-3129.yaml"}
+	templatePaths := []string{"CVE-2021-3129.yaml"}
 	debug := false
 	excludeTags := goflags.StringSlice{"dos", "misc"}
 
@@ -36,7 +37,10 @@ func TestNuclei(t *testing.T) {
 	}
 
 	for _, target := range targets {
-		nucleiplus.Nuclei(outputWriter, target, templatePaths, debug, excludeTags)
+		err := nucleiplus.Nuclei(outputWriter, target, templatePaths, debug, excludeTags)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 
 	// result

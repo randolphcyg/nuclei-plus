@@ -14,6 +14,7 @@ import (
 	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/config"
 	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/disk"
 	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/loader"
+	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/loader/filter"
 	"github.com/projectdiscovery/nuclei/v2/pkg/core"
 	"github.com/projectdiscovery/nuclei/v2/pkg/core/inputs"
 	"github.com/projectdiscovery/nuclei/v2/pkg/parsers"
@@ -27,10 +28,9 @@ import (
 	"github.com/projectdiscovery/nuclei/v2/pkg/testutils"
 	"github.com/projectdiscovery/nuclei/v2/pkg/types"
 	"github.com/projectdiscovery/ratelimit"
-	log "github.com/sirupsen/logrus"
 )
 
-func Nuclei(outputWriter *testutils.MockOutputWriter, target string, templatePaths []string, debug bool, excludeTags goflags.StringSlice) {
+func Nuclei(outputWriter *testutils.MockOutputWriter, target string, templatePaths []string, debug bool, excludeTags goflags.StringSlice) (err error) {
 	cache := hosterrorscache.New(30, hosterrorscache.DefaultMaxHostsCount, nil)
 	defer cache.Close()
 
@@ -54,17 +54,21 @@ func Nuclei(outputWriter *testutils.MockOutputWriter, target string, templatePat
 	home, _ := os.UserHomeDir()
 	templatesDirectory := path.Join(home, TemplatesDirectory)
 
-	ValidateTemplatePaths(templatesDirectory, templatePaths, defaultOpts.Workflows)
+	err = ValidateTemplatePaths(templatesDirectory, templatePaths, defaultOpts.Workflows)
+	if err != nil {
+		return err
+	}
+
+	catalog := disk.NewCatalog(templatesDirectory)
 
 	interactOpts := interactsh.NewDefaultOptions(outputWriter, reportingClient, mockProgress)
 	interactClient, err := interactsh.New(interactOpts)
 	if err != nil {
 		err = errors.Wrap(err, "Could not create interact client")
-		log.Error(err)
+		return
 	}
 	defer interactClient.Close()
 
-	catalog := disk.NewCatalog(templatesDirectory)
 	executerOpts := protocols.ExecuterOptions{
 		Output:          outputWriter,
 		Options:         defaultOpts,
@@ -84,19 +88,19 @@ func Nuclei(outputWriter *testutils.MockOutputWriter, target string, templatePat
 	workflowLoader, err := parsers.NewLoader(&executerOpts)
 	if err != nil {
 		err = errors.Wrap(err, "Could not create workflow loader")
-		log.Error(err)
+		return
 	}
 	executerOpts.WorkflowLoader = workflowLoader
 
 	configObject, err := config.ReadConfiguration()
 	if err != nil {
 		err = errors.Wrap(err, "Could not read config")
-		log.Error(err)
+		return
 	}
 	store, err := loader.New(loader.NewConfig(defaultOpts, configObject, catalog, executerOpts))
 	if err != nil {
 		err = errors.Wrap(err, "Could not create loader client")
-		log.Error(err)
+		return
 	}
 	store.Load()
 
@@ -104,21 +108,34 @@ func Nuclei(outputWriter *testutils.MockOutputWriter, target string, templatePat
 	input := &inputs.SimpleInputProvider{Inputs: targets}
 	_ = engine.Execute(store.Templates(), input)
 	engine.WorkPool().Wait() // Wait for the scan to finish
+
+	return
 }
 
-func ValidateTemplatePaths(templatesDirectory string, templatePaths, workflowPaths []string) {
+func ValidateTemplatePaths(templatesDirectory string, templatePaths, workflowPaths []string) (err error) {
 	allGivenTemplatePaths := append(templatePaths, workflowPaths...)
 	for _, templatePath := range allGivenTemplatePaths {
 		if templatesDirectory != templatePath && filepath.IsAbs(templatePath) {
 			fileInfo, err := os.Stat(templatePath)
 			if err == nil && fileInfo.IsDir() {
-				relativizedPath, err2 := filepath.Rel(templatesDirectory, templatePath)
-				if err2 != nil || (len(relativizedPath) >= 2 && relativizedPath[:2] == "..") {
+				relativizedPath, err := filepath.Rel(templatesDirectory, templatePath)
+				if err != nil || (len(relativizedPath) >= 2 && relativizedPath[:2] == "..") {
 					gologger.Warning().Msgf("The given path (%s) is outside the default template directory path (%s)! "+
 						"Referenced sub-templates with relative paths in workflows will be resolved against the default template directory.", templatePath, templatesDirectory)
-					break
+					return err
 				}
 			}
 		}
+
+		// verify template
+		for _, p := range templatePaths {
+			_, err = parsers.LoadTemplate(p, &filter.TagFilter{}, nil, disk.NewCatalog(templatesDirectory))
+			if err != nil {
+				return errors.Wrap(err, p)
+			}
+		}
+
 	}
+
+	return
 }
