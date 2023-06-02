@@ -1,4 +1,4 @@
-module github.com/randolphcyg/nuclei-plus
+module github.com/randolphcyg/nucleiplus
 
 go 1.20
 
