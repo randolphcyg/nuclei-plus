@@ -5,7 +5,7 @@
 ## install
 
 ```shell
-go get github.com/randolphcyg/nuclei-plus
+go get github.com/randolphcyg/nucleiplus
 ```
 
 
@@ -39,8 +39,7 @@ import (
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/nuclei/v2/pkg/output"
 	"github.com/projectdiscovery/nuclei/v2/pkg/testutils"
-
-	nucleiplus "nuclei-plus"
+	"github.com/randolphcyg/nucleiplus"
 )
 
 func main() {
