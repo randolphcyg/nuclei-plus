@@ -2,6 +2,12 @@
 
 - Allows Golang to call Nuclei directly to get scan results
 
+## install
+
+```shell
+go get github.com/randolphcyg/nuclei-plus
+```
+
 
 ## Case: use nuclei-plus scan CVE-2021-3129
 
