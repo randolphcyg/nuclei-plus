@@ -4,19 +4,16 @@ import (
 	"context"
 	"os"
 	"path"
-	"path/filepath"
 	"time"
 
 	"github.com/logrusorgru/aurora"
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/goflags"
-	"github.com/projectdiscovery/gologger"
-	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/config"
 	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/disk"
 	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/loader"
-	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/loader/filter"
 	"github.com/projectdiscovery/nuclei/v2/pkg/core"
 	"github.com/projectdiscovery/nuclei/v2/pkg/core/inputs"
+	"github.com/projectdiscovery/nuclei/v2/pkg/model/types/stringslice"
 	"github.com/projectdiscovery/nuclei/v2/pkg/parsers"
 	"github.com/projectdiscovery/nuclei/v2/pkg/protocols"
 	"github.com/projectdiscovery/nuclei/v2/pkg/protocols/common/contextargs"
@@ -25,12 +22,13 @@ import (
 	"github.com/projectdiscovery/nuclei/v2/pkg/protocols/common/protocolinit"
 	"github.com/projectdiscovery/nuclei/v2/pkg/protocols/common/protocolstate"
 	"github.com/projectdiscovery/nuclei/v2/pkg/reporting"
+	"github.com/projectdiscovery/nuclei/v2/pkg/templates"
 	"github.com/projectdiscovery/nuclei/v2/pkg/testutils"
 	"github.com/projectdiscovery/nuclei/v2/pkg/types"
 	"github.com/projectdiscovery/ratelimit"
 )
 
-func Nuclei(outputWriter *testutils.MockOutputWriter, target string, templatePaths []string, debug bool, excludeTags goflags.StringSlice) (err error) {
+func Nuclei(outputWriter *testutils.MockOutputWriter, targets []string, templatePaths []string, debug bool, tags, excludeTags goflags.StringSlice) (err error) {
 	cache := hosterrorscache.New(30, hosterrorscache.DefaultMaxHostsCount, nil)
 	defer cache.Close()
 
@@ -39,37 +37,30 @@ func Nuclei(outputWriter *testutils.MockOutputWriter, target string, templatePat
 	defer reportingClient.Close()
 
 	defaultOpts := types.DefaultOptions()
-
 	protocolstate.Init(defaultOpts)
 	protocolinit.Init(defaultOpts)
 
+	if len(templatePaths) > 0 {
+		defaultOpts.Templates = templatePaths
+	}
+	defaultOpts.Debug = debug
 	defaultOpts.Validate = true
 	defaultOpts.UpdateTemplates = true
-	defaultOpts.Debug = debug
 	defaultOpts.Verbose = true
 	defaultOpts.EnableProgressBar = true
 	defaultOpts.ExcludeTags = excludeTags
-	defaultOpts.Templates = templatePaths
+	defaultOpts.Tags = tags
 
-	home, _ := os.UserHomeDir()
-	templatesDirectory := path.Join(home, TemplatesDirectory)
-
-	err = ValidateTemplatePaths(templatesDirectory, templatePaths, defaultOpts.Workflows)
-	if err != nil {
-		return err
-	}
-
-	catalog := disk.NewCatalog(templatesDirectory)
-
-	interactOpts := interactsh.NewDefaultOptions(outputWriter, reportingClient, mockProgress)
+	interactOpts := interactsh.DefaultOptions(outputWriter, reportingClient, mockProgress)
 	interactClient, err := interactsh.New(interactOpts)
 	if err != nil {
 		err = errors.Wrap(err, "Could not create interact client")
-		return
 	}
 	defer interactClient.Close()
 
-	executerOpts := protocols.ExecuterOptions{
+	home, _ := os.UserHomeDir()
+	catalog := disk.NewCatalog(path.Join(home, TemplatesDirectory))
+	executorOpts := protocols.ExecutorOptions{
 		Output:          outputWriter,
 		Options:         defaultOpts,
 		Progress:        mockProgress,
@@ -81,61 +72,94 @@ func Nuclei(outputWriter *testutils.MockOutputWriter, target string, templatePat
 		Colorizer:       aurora.NewAurora(true),
 		ResumeCfg:       types.NewResumeCfg(),
 	}
-
 	engine := core.New(defaultOpts)
-	engine.SetExecuterOptions(executerOpts)
+	engine.SetExecuterOptions(executorOpts)
 
-	workflowLoader, err := parsers.NewLoader(&executerOpts)
+	workflowLoader, err := parsers.NewLoader(&executorOpts)
 	if err != nil {
 		err = errors.Wrap(err, "Could not create workflow loader")
-		return
 	}
-	executerOpts.WorkflowLoader = workflowLoader
+	executorOpts.WorkflowLoader = workflowLoader
 
-	configObject, err := config.ReadConfiguration()
-	if err != nil {
-		err = errors.Wrap(err, "Could not read config")
-		return
-	}
-	store, err := loader.New(loader.NewConfig(defaultOpts, configObject, catalog, executerOpts))
+	store, err := loader.New(loader.NewConfig(defaultOpts, catalog, executorOpts))
 	if err != nil {
 		err = errors.Wrap(err, "Could not create loader client")
-		return
 	}
 	store.Load()
 
-	targets := []*contextargs.MetaInput{{Input: target}}
-	input := &inputs.SimpleInputProvider{Inputs: targets}
-	_ = engine.Execute(store.Templates(), input)
+	if len(store.Templates()) == 0 {
+		err = errors.New("There is no POC template that meets the requirements")
+		return
+	}
+
+	tpls, err := CustomTemplateFilter(store.Templates(), tags)
+
+	var inputArgs []*contextargs.MetaInput
+	for _, target := range targets {
+		inputArgs = append(inputArgs, &contextargs.MetaInput{Input: target})
+	}
+	input := &inputs.SimpleInputProvider{Inputs: inputArgs}
+
+	_ = engine.Execute(tpls, input)
 	engine.WorkPool().Wait() // Wait for the scan to finish
 
 	return
 }
 
-func ValidateTemplatePaths(templatesDirectory string, templatePaths, workflowPaths []string) (err error) {
-	allGivenTemplatePaths := append(templatePaths, workflowPaths...)
-	for _, templatePath := range allGivenTemplatePaths {
-		if templatesDirectory != templatePath && filepath.IsAbs(templatePath) {
-			fileInfo, err := os.Stat(templatePath)
-			if err == nil && fileInfo.IsDir() {
-				relativizedPath, err := filepath.Rel(templatesDirectory, templatePath)
-				if err != nil || (len(relativizedPath) >= 2 && relativizedPath[:2] == "..") {
-					gologger.Warning().Msgf("The given path (%s) is outside the default template directory path (%s)! "+
-						"Referenced sub-templates with relative paths in workflows will be resolved against the default template directory.", templatePath, templatesDirectory)
-					return err
-				}
-			}
+// CustomTemplateFilter 自定义模版过滤器
+func CustomTemplateFilter(srcTpls []*templates.Template, tags goflags.StringSlice) (tpls []*templates.Template, err error) {
+	for _, srcTpl := range srcTpls {
+		if isTagAndMatch(srcTpl.Info.Tags, tags) {
+			tpls = append(tpls, srcTpl)
 		}
-
-		// verify template
-		for _, p := range templatePaths {
-			_, err = parsers.LoadTemplate(p, &filter.TagFilter{}, nil, disk.NewCatalog(templatesDirectory))
-			if err != nil {
-				return errors.Wrap(err, p)
-			}
-		}
-
 	}
 
 	return
+}
+
+// isTagAndMatch 判断符合 包含tags标签列表要求 的模版
+func isTagAndMatch(templateTags stringslice.StringSlice, tags goflags.StringSlice) bool {
+	if IsStringSliceEqual(intersect(templateTags.ToSlice(), tags), tags) {
+		return true
+	}
+
+	return false
+}
+
+// intersect 求俩string切片的交集
+func intersect(a []string, b []string) []string {
+	inter := make([]string, 0)
+	mp := make(map[string]bool)
+
+	for _, s := range a {
+		if _, ok := mp[s]; !ok {
+			mp[s] = true
+		}
+	}
+	for _, s := range b {
+		if _, ok := mp[s]; ok {
+			inter = append(inter, s)
+		}
+	}
+
+	return inter
+}
+
+// IsStringSliceEqual 判断俩string切片是否相等
+func IsStringSliceEqual(x, y []string) bool {
+	if len(x) != len(y) {
+		return false
+	}
+
+	if (x == nil) != (y == nil) {
+		return false
+	}
+
+	for i, v := range x {
+		if v != y[i] {
+			return false
+		}
+	}
+
+	return true
 }

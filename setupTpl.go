@@ -19,6 +19,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/projectdiscovery/gologger"
 	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/config"
+	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/disk"
+	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/loader/filter"
+	"github.com/projectdiscovery/nuclei/v2/pkg/parsers"
 	client "github.com/projectdiscovery/nuclei/v2/pkg/protocols/common/updatecheck"
 	log "github.com/sirupsen/logrus"
 )
@@ -28,7 +31,7 @@ const (
 	repoName             = "nuclei-templates"
 	nucleiConfigFilename = ".templates-config.json"
 	TemplatesDirectory   = "nuclei-templates"
-	TemplateVersion      = "9.4.2"
+	TemplateVersion      = "9.5.1"
 )
 
 // Config contains the internal nuclei engine configuration
@@ -63,6 +66,34 @@ func getConfigDetails() (string, error) {
 	_ = os.MkdirAll(configDir, os.ModePerm)
 	templatesConfigFile := filepath.Join(configDir, nucleiConfigFilename)
 	return templatesConfigFile, nil
+}
+
+func ValidateTemplatePaths(templatesDirectory string, templatePaths, workflowPaths []string) (err error) {
+	allGivenTemplatePaths := append(templatePaths, workflowPaths...)
+	for _, templatePath := range allGivenTemplatePaths {
+		if templatesDirectory != templatePath && filepath.IsAbs(templatePath) {
+			fileInfo, err := os.Stat(templatePath)
+			if err == nil && fileInfo.IsDir() {
+				relativizedPath, err := filepath.Rel(templatesDirectory, templatePath)
+				if err != nil || (len(relativizedPath) >= 2 && relativizedPath[:2] == "..") {
+					gologger.Warning().Msgf("The given path (%s) is outside the default template directory path (%s)! "+
+						"Referenced sub-templates with relative paths in workflows will be resolved against the default template directory.", templatePath, templatesDirectory)
+					return err
+				}
+			}
+		}
+
+		// verify template
+		for _, p := range templatePaths {
+			_, err = parsers.LoadTemplate(p, &filter.TagFilter{}, nil, disk.NewCatalog(templatesDirectory))
+			if err != nil {
+				return errors.Wrap(err, p)
+			}
+		}
+
+	}
+
+	return
 }
 
 // WriteConfiguration writes the updated nuclei configuration to disk

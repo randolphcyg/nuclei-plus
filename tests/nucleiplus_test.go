@@ -4,18 +4,19 @@ import (
 	"fmt"
 	"testing"
 
+	"nucleiplus"
+
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/nuclei/v2/pkg/output"
 	"github.com/projectdiscovery/nuclei/v2/pkg/testutils"
-	"github.com/randolphcyg/nucleiplus"
 )
 
 func TestNuclei(t *testing.T) {
 	// download config & templates
-	err := nucleiplus.Setup()
-	if err != nil {
-		panic(err)
-	}
+	//err := nucleiplus.Setup()
+	//if err != nil {
+	//	panic(err)
+	//}
 
 	// targets
 	targets := []string{
@@ -23,9 +24,11 @@ func TestNuclei(t *testing.T) {
 	}
 
 	// template
-	templatePaths := []string{"CVE-2022-22963.yaml"}
+	var templatePaths []string
+	//templatePaths := []string{"CVE-2022-22963.yaml"}
 	debug := false
 	excludeTags := goflags.StringSlice{"dos", "misc"}
+	tags := []string{"rce", "springcloud"}
 
 	// output
 	results := make([]*output.ResultEvent, 0)
@@ -37,11 +40,9 @@ func TestNuclei(t *testing.T) {
 		results = append(results, event)
 	}
 
-	for _, target := range targets {
-		err := nucleiplus.Nuclei(outputWriter, target, templatePaths, debug, excludeTags)
-		if err != nil {
-			panic(err)
-		}
+	err := nucleiplus.Nuclei(outputWriter, targets, templatePaths, debug, excludeTags, tags)
+	if err != nil {
+		panic(err)
 	}
 
 	// result
