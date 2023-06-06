@@ -13,6 +13,7 @@ import (
 	"github.com/projectdiscovery/nuclei/v2/pkg/catalog/loader"
 	"github.com/projectdiscovery/nuclei/v2/pkg/core"
 	"github.com/projectdiscovery/nuclei/v2/pkg/core/inputs"
+	"github.com/projectdiscovery/nuclei/v2/pkg/model/types/severity"
 	"github.com/projectdiscovery/nuclei/v2/pkg/model/types/stringslice"
 	"github.com/projectdiscovery/nuclei/v2/pkg/parsers"
 	"github.com/projectdiscovery/nuclei/v2/pkg/protocols"
@@ -28,7 +29,7 @@ import (
 	"github.com/projectdiscovery/ratelimit"
 )
 
-func Nuclei(outputWriter *testutils.MockOutputWriter, targets []string, templatePaths []string, debug bool, tags, excludeTags goflags.StringSlice) (err error) {
+func Nuclei(outputWriter *testutils.MockOutputWriter, targets []string, templatePaths []string, debug bool, crossTags, tags, excludeTags goflags.StringSlice, templateThreads int, severities severity.Severities) (err error) {
 	cache := hosterrorscache.New(30, hosterrorscache.DefaultMaxHostsCount, nil)
 	defer cache.Close()
 
@@ -43,13 +44,23 @@ func Nuclei(outputWriter *testutils.MockOutputWriter, targets []string, template
 	if len(templatePaths) > 0 {
 		defaultOpts.Templates = templatePaths
 	}
+	if templateThreads > 0 {
+		defaultOpts.TemplateThreads = templateThreads
+	}
+	if severities != nil && len(severities) > 0 {
+		defaultOpts.Severities = severities
+	}
 	defaultOpts.Debug = debug
 	defaultOpts.Validate = true
 	defaultOpts.UpdateTemplates = true
 	defaultOpts.Verbose = true
 	defaultOpts.EnableProgressBar = true
-	defaultOpts.ExcludeTags = excludeTags
-	defaultOpts.Tags = tags
+	if len(excludeTags) > 0 {
+		defaultOpts.ExcludeTags = excludeTags
+	}
+	if len(tags) > 0 {
+		defaultOpts.Tags = tags
+	}
 
 	interactOpts := interactsh.DefaultOptions(outputWriter, reportingClient, mockProgress)
 	interactClient, err := interactsh.New(interactOpts)
@@ -92,7 +103,10 @@ func Nuclei(outputWriter *testutils.MockOutputWriter, targets []string, template
 		return
 	}
 
-	tpls, err := CustomTemplateFilter(store.Templates(), tags)
+	tpls := store.Templates()
+	if len(crossTags) > 0 {
+		tpls, err = CustomTemplateFilter(tpls, crossTags)
+	}
 
 	var inputArgs []*contextargs.MetaInput
 	for _, target := range targets {

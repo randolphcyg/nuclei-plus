@@ -7,17 +7,12 @@ import (
 	"nucleiplus"
 
 	"github.com/projectdiscovery/goflags"
+	"github.com/projectdiscovery/nuclei/v2/pkg/model/types/severity"
 	"github.com/projectdiscovery/nuclei/v2/pkg/output"
 	"github.com/projectdiscovery/nuclei/v2/pkg/testutils"
 )
 
 func TestNuclei(t *testing.T) {
-	// download config & templates
-	//err := nucleiplus.Setup()
-	//if err != nil {
-	//	panic(err)
-	//}
-
 	// targets
 	targets := []string{
 		"http://192.168.3.209:18080",
@@ -25,10 +20,15 @@ func TestNuclei(t *testing.T) {
 
 	// template
 	var templatePaths []string
-	//templatePaths := []string{"CVE-2022-22963.yaml"}
 	debug := false
 	excludeTags := goflags.StringSlice{"dos", "misc"}
-	tags := []string{"rce", "springcloud"}
+	tags := []string{"rce"}
+	crossTags := []string{"springcloud"}
+	templateThreads := 100
+
+	var severities severity.Severities
+	severities = append(severities, severity.Critical)
+	severities = append(severities, severity.High)
 
 	// output
 	results := make([]*output.ResultEvent, 0)
@@ -40,7 +40,7 @@ func TestNuclei(t *testing.T) {
 		results = append(results, event)
 	}
 
-	err := nucleiplus.Nuclei(outputWriter, targets, templatePaths, debug, excludeTags, tags)
+	err := nucleiplus.Nuclei(outputWriter, targets, templatePaths, debug, crossTags, tags, excludeTags, templateThreads, severities)
 	if err != nil {
 		panic(err)
 	}

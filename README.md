@@ -28,7 +28,7 @@ http://192.168.126.128:8080
 nuclei -u "http://192.168.126.128:8080" -t "/root/nuclei-templates/cves/2021/CVE-2021-3129.yaml"
 ```
 
-then use nucleiplus to scan CVE-2021-3129:
+then use nucleiplus to scan CVE-2021-3129 vulnerabilities:
 
 ```go
 package main
@@ -43,18 +43,22 @@ import (
 )
 
 func main() {
-	// download config & templates
-	nucleiplus.Setup()
-
 	// targets
 	targets := []string{
-		"http://192.168.126.128:8080",
+		"http://192.168.3.209:18080",
 	}
 
 	// template
-	templatePaths := []string{"/root/nuclei-templates/cves/2021/CVE-2021-3129.yaml"}
-	debug := false
+	templatePaths := []string{"CVE-2021-3129.yaml"}
+	debug := true
 	excludeTags := goflags.StringSlice{"dos", "misc"}
+	tags := []string{"rce"}
+	crossTags := []string{"springcloud"}
+	templateThreads := 100
+
+	var severities severity.Severities
+	severities = append(severities, severity.Critical)
+	severities = append(severities, severity.High)
 
 	// output
 	results := make([]*output.ResultEvent, 0)
@@ -66,13 +70,16 @@ func main() {
 		results = append(results, event)
 	}
 
-	for _, target := range targets {
-		nucleiplus.Nuclei(outputWriter, target, templatePaths, debug, excludeTags)
+	err := nucleiplus.Nuclei(outputWriter, targets, templatePaths, debug, tags, crossTags, excludeTags, templateThreads, severities)
+	if err != nil {
+		panic(err)
 	}
 
 	// result
-	for _, info := range results {
-		fmt.Println(info)
+	if len(results) > 0 {
+		for _, info := range results {
+			fmt.Println(info)
+		}
 	}
 }
 ```
